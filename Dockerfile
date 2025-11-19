@@ -1,41 +1,34 @@
-# Use a slim but compatible Python base
 FROM python:3.10-slim
 
-# Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
-
-# Set working directory
 WORKDIR /app
 
-# Install system deps required for PyTorch, DGL, and scientific libs
+# System dependencies
 RUN apt-get update && apt-get install -y \
-    git \
-    build-essential \
-    cmake \
-    wget \
-    libssl-dev \
+    git build-essential cmake wget libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install pipenv
 RUN pip install pipenv
 
-# Copy Pipenv files
+# Install PyTorch CPU wheels FIRST (avoids Pipenv conflicts)
+RUN pip install torch==2.2.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Install DGL CPU wheel
+RUN pip install dgl==1.1.3 -f https://data.dgl.ai/wheels/repo.html
+
+# Copy Pipfile
 COPY Pipfile Pipfile.lock ./
 
-# Install dependencies inside container
-RUN pipenv install --skip-lock
+# Install your remaining dependencies
+RUN pipenv install --skip-lock --system --deploy
 
-# Copy entire project
+# Copy project files
 COPY . .
 
-# Set environment variables
 ENV FLASK_APP=app.py
 ENV PORT=10000
 
-# Expose port for Render
 EXPOSE 10000
 
-# Run Flask through pipenv
-CMD ["sh", "-c", "pipenv run flask run --host=0.0.0.0 --port=${PORT}"]
-
-
+CMD ["sh", "-c", "flask run --host=0.0.0.0 --port=${PORT}"]
