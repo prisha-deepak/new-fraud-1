@@ -1,19 +1,14 @@
 from flask import Flask, jsonify, request
 from models import GraphDatabase, GNN
+import os
 
 app = Flask(__name__)
 
+# ---------------------- ROUTES --------------------------
 
 @app.route("/")
 def home():
     return open("lab/frontend/index.html").read()
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
-
-graph_database = GraphDatabase()
-gnn_model = GNN(graph_database.graph)
 
 
 @app.route("/accounts")
@@ -43,22 +38,20 @@ def get_transactions_by_sender_receiver():
     receiver_id = payload["receiver_id"]
     total_amount = payload["total_amount"]
 
-    # Update graph with new transaction
     try:
         graph = graph_database.graph
         graph_database.create_new_transaction(sender_id, receiver_id, total_amount)
 
-        predicitons = gnn_model.predict(graph)
+        predictions = gnn_model.predict(graph)
 
-        # Find Pair prediction
         node_list = list(graph.nodes)
         node_indices = {node: idx for idx, node in enumerate(node_list)}
 
         node_a_ix = node_indices[str(sender_id)]
         node_b_ix = node_indices[str(receiver_id)]
 
-        a_fraud = float(predicitons.flatten()[node_a_ix])
-        b_fraud = float(predicitons.flatten()[node_b_ix])
+        a_fraud = float(predictions.flatten()[node_a_ix])
+        b_fraud = float(predictions.flatten()[node_b_ix])
 
         return jsonify(
             {
@@ -72,5 +65,16 @@ def get_transactions_by_sender_receiver():
 
 @app.route("/graphml")
 def get_graphml():
-    # Return the graph in GraphML format
     return graph_database.get_graphml()
+
+# ---------------------- MODEL LOAD (must be BEFORE run) --------------------------
+
+graph_database = GraphDatabase()
+gnn_model = GNN(graph_database.graph)
+
+# ---------------------- FLASK SERVER --------------------------
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
