@@ -39,7 +39,9 @@ ENV FLASK_APP=lab.backend.app.py
 ENV FLASK_RUN_HOST=0.0.0.0
 
 # Expose the port the app runs on
-EXPOSE ${PORT}
+EXPOSE $PORT
+
 
 # Start Flask using dynamic port
-CMD ["sh", "-c", "pipenv run flask run --host=0.0.0.0 --port=${PORT}"]
+CMD ["pipenv", "run", "flask", "run", "--host=0.0.0.0", "--port=$PORT"]
+
