@@ -1,47 +1,38 @@
-# Use the official Python 3.10 image from the Docker Hub
+# Use the official Python 3.10 slim image
 FROM python:3.10.0-slim
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Install pipenv, cmake, and build tools
+# Install system build tools needed for native extensions (adjust as needed)
 RUN apt-get update && apt-get install -y \
     cmake \
     build-essential \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install pipenv
+# Install pipenv
+RUN pip install --no-cache-dir pipenv
 
-# Copy the Pipfile and Pipfile.lock into the container
+# Copy Pipfile and Pipfile.lock first to leverage layer caching
 COPY Pipfile Pipfile.lock ./
 
+# Install dependencies using pipenv (regenerates lock inside container)
+RUN pipenv install --skip-lock --python /usr/local/bin/python \
+ && pipenv lock \
+ && pipenv install --deploy --ignore-pipfile --python /usr/local/bin/python
 
-# Install dependencies without using the possibly broken lock file
-RUN pipenv install --skip-lock --python /usr/local/bin/python
-
-# Regenerate the lock file (it'll be compatible with Linux now)
-RUN pipenv lock
-
-# Install the dependencies using the newly generated Pipfile.lock
-RUN pipenv install --deploy --ignore-pipfile --python /usr/local/bin/python
-
-
-# Install the dependencies using pipenv
-#RUN pipenv install --deploy --ignore-pipfile --python /usr/local/bin/python
-
-# Copy the rest of the application code into the container
+# Copy the rest of the application code
 COPY . .
 
-# Set environment variables
-ENV PORT=${PORT}
+# Default port for Cloud Run and local testing
+ENV PORT=8080
 ENV FLASK_APP=lab.backend.app.py
 ENV FLASK_RUN_HOST=0.0.0.0
 
-# Expose the port the app runs on
-EXPOSE $PORT
+# Expose the port (use numeric constant for clarity)
+EXPOSE 8080
 
-
-# Start Flask using dynamic port
-CMD ["pipenv", "run", "flask", "run", "--host=0.0.0.0", "--port=$PORT"]
+# Use sh -c so environment variables (like $PORT) are expanded at runtime
+CMD ["sh", "-c", "pipenv run flask run --host=0.0.0.0 --port=$PORT"]
 
